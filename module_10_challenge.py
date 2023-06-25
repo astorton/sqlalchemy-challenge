@@ -42,16 +42,19 @@ app = Flask(__name__)
 def welcome():
     #List available api routes.
     return (
-        f"/api/v1.0/precipitation"
-        f"/api/v1.0/stations"
+        "Welcome to the Climate App!"\
+        f"/api/v1.0/precipitation"\
+        f"/api/v1.0/stations"\
         f"/api/v1.0/tobs"
+        f"/api/v1.0/please enter a date"
+        f"/api/v1.0/please enter a start and end date"
     )
 
     station_list = session.query(station).all()
 
 #################################################
 # Flask Routes
-@app.route("/api/precipitation")
+@app.route("/api//v1.0/precipitation")
 def precipitation():
     # Create our session (link) from Python to the DB
     session = Session(hw_engine)
@@ -68,7 +71,7 @@ def precipitation():
 
     return jsonify(all_measurements)
     
-@app.route("/api/stations")
+@app.route("/api//v1.0/stations")
 def stations():
     session = Session(hw_engine)
 
@@ -81,9 +84,10 @@ def stations():
 
     return jsonify(all_stations)
 
-@app.route("/api/tobs")
+@app.route("/api/v1.0/tobs")
 def stations():
     #Return the most active station and the last year of temp. data
+    session = Session(hw_engine)
     stations_count = session.query(measurement.station,func.count(measurement.station)).group_by(measurement.station).order_by(func.count(measurement.station).desc()).first()
     mas_latest_date = session.query(func.max(measurement.date)).filter(measurement.station =='USC00519281').all()
     mas_one_year_lookback = dt.date(2017,8,18) - timedelta(days=365)
@@ -102,15 +106,51 @@ def stations():
 #For a specified start, calculate TMIN, TAVG, and TMAX for all the dates greater than or equal to the start date.
 
 #For a specified start date and end date, calculate TMIN, TAVG, and TMAX for the dates from the start date to the end date, inclusive.
-@app.route("/api/<start>")
-def start_date(start):
+@app.route("/api/v1.0/<start>")
+
+
+
+def start_date(start_date):
     """Fetch the start date that matches the path variable supplied by the user, or prompt a 404 error if not."""
-    for user_date in measurement.date:
-        if user_date == measurement.date:
-            return jsonify(user_date)
+    session = Session(hw_engine)
+    if start_date == None:
+    
+        return jsonify({"error": f"Character with real_name {start_date} not found."}), 404
 
-    return jsonify({"error": f"Character with real_name {start} not found."}), 404
+    else:
+        start_query = session.query(func.min(measurement.tobs),func.max(measurement.tobs),func.avg(measurement.tobs))
+        filter(measurement.date >= start_query).group_by(measurement.date).all()
+        session.close()
+    
+    start_date_results = []
 
+    session.close()
+
+    start_date_dict = {}
+    start_date_dict["Min Temp"] = start_query[0][0]
+    start_date_dict["Max Temp"] = start_query[0][1]
+    start_date_dict["Avg Temp"] = start_query[0][2] 
+    return jsonify(start_date_dict)
+
+@app.route("/api/v1.0/<start>/<end>")
+
+def alpha_omega(start, end):
+    # Create our session (link) from Python to the DB
+    session = Session(hw_engine)
+    
+    #return the queried data bounded between the start and end dates
+    a_o_results = session.query(func.min(measurement.tobs), func.avg(measurement.tobs), func.max(measurement.tobs)).\
+                filter(measurement.date >= start).filter(measurement.date <= end).all()
+    
+    a_o_list = []
+    for date, min, max, avg in alpha_omega:
+        start_date_dict = {}
+        start_date_dict["Date"] = date 
+        start_date_dict["TMIN"] = min 
+        start_date_dict["TMAX"] = max
+        start_date_dict["TAVG"] = avg 
+        a_o_list.append(start_date_dict)
+    session.close()
 
 if __name__ == "__main__":
     app.run(debug=True)
