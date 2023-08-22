@@ -5,7 +5,7 @@ import datetime as dt
 from sqlalchemy.ext.automap import automap_base
 from sqlalchemy.orm import Session
 from sqlalchemy import create_engine, func
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify
 from datetime import timedelta
 
 
@@ -37,7 +37,6 @@ row_one.__dict__
 # Flask Setup
 #################################################
 app = Flask(__name__)
-
 @app.route("/")
 def welcome():
     #List available api routes.
@@ -134,30 +133,25 @@ def start_date(start):
 
 def alpha_omega(start, end):
     # Create our session (link) from Python to the DB
-    session = Session(hw_engine)
-    
-    startTime = dt.datetime.strptime(start, "%m%d%Y")
-    endTime = dt.datetime.strptime(end,  "%m%d%Y")
+  
     
     #return the queried data bounded between the start and end dates
-    a_o_results = session.query(func.min(measurement.tobs), func.avg(measurement.tobs), func.max(measurement.tobs)).filter(measurement.date >= startTime).filter(measurement.date < endTime).all()
-
-    print(a_o_results)
-    a_o_list = []
+    sel = [func.min(measurement.tobs),func.max(measurement.tobs),func.avg(measurement.tobs)]
+    start=dt.datetime.strptime(start, "%m%d%Y")
+    results =session.query(*sel).filter(measurement.date >= start).filter(measurement.date <= end)
     session.close()
+    temps = list(np.ravel(results))
 
-    for min, avg, max in a_o_results:
-        start_date_dict = {}
-        # start_date_dict["Date"] = a_o_results[0][0]
-        start_date_dict["TMIN"] = min 
-        start_date_dict["TAVG"] = avg
-        start_date_dict["TMAX"] = max
-        a_o_list.append(start_date_dict)
+    
+    return jsonify(temps)
 
-    return jsonify(start_date_dict)
-
-
-
+# for date, min, max, avg in alpha_omega:
+#     start_date_dict = {}
+#     start_date_dict["Date"] = a_o_results[0][0]
+#     start_date_dict["TMIN"] = min 
+#     start_date_dict["TMAX"] = max
+#     start_date_dict["TAVG"] = avg 
+#     a_o_list.append(start_date_dict)
 
 if __name__ == "__main__":
     app.run(debug=True)
